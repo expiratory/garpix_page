@@ -159,6 +159,33 @@ def get_rule_fields_values():
     return rule_fields_values
 
 
+def get_models_fields_values():
+    fields_values = []
+
+    for page_model in get_garpix_page_models():
+        for f in page_model._meta.get_fields():
+            if not (hasattr(f, 'verbose_name') and (
+                    isinstance(f, CharField) or isinstance(f, TextField))):
+                continue
+
+            prop_filed = (f.name, f.verbose_name)
+
+            if prop_filed in fields_values:
+                continue
+
+            fields_values.append(prop_filed)
+
+        for f in [f for name in dir(page_model) if isinstance(f := getattr(page_model, name), cached_property)]:
+            prop_field = (f.name, f.short_description)
+
+            if prop_field in fields_values:
+                continue
+
+            fields_values.append(prop_field)
+
+    return fields_values
+
+
 class SeoTemplateForm(forms.ModelForm):
     class RULE_FIELD:
         MODEL_NAME = 'model_name'
@@ -189,11 +216,11 @@ class SeoTemplateForm(forms.ModelForm):
                 lang = lang.replace('-', '_')
                 seo_fields.append(f"{field_name}_{lang}")
 
-        models_fields_values = {field[0]: 'value' for field in get_rule_fields_values()}
+        models_fields_values = {field[0]: 'value' for field in get_models_fields_values()}
 
         for field_name in seo_fields:
             try:
-                seo_value = str(_data.get(field_name, '')).format(
+                str(_data.get(field_name, '')).format(
                     **models_fields_values)
-            except (AttributeError, KeyError, ValueError) as e:
+            except (AttributeError, KeyError, ValueError):
                 raise ValidationError({field_name: _("Некорректный шаблон")})
